@@ -11,7 +11,7 @@
 *{margin:0;padding:0;box-sizing:border-box;}html{font-size:14px;}
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
 
-#loadingScreen{position:fixed;inset:0;background:var(–bg);z-index:500;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
+#loadingScreen{position:fixed;inset:0;background:var(–bg);z-index:500;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
 .load-logo{font-family:‘Bebas Neue’,sans-serif;font-size:42px;letter-spacing:6px;color:var(–cyan);}
 .load-bar-wrap{width:160px;height:2px;background:var(–border);border-radius:1px;overflow:hidden;}
 .load-bar{height:100%;background:var(–cyan);animation:loadAnim 1.5s ease forwards;}
@@ -444,7 +444,8 @@ function chkMkt(){
 async function startApp(){
   startClock();chkMkt();
   await loadData();
-  loadNews(); // always load news
+  loadNews();
+  document.getElementById('loadingScreen').style.display='none';
   document.getElementById('app').style.display='block';
   refIv=setInterval(()=>{chkMkt();loadData();},mktOpen?30000:300000);
   setInterval(loadNews,600000);
@@ -1022,11 +1023,12 @@ function renderNews(){
 }
 
 // Auto-start
-document.getElementById('loadingScreen').style.display='flex';
 fetch('/health').then(r=>r.json()).then(d=>{
   document.getElementById('modePill').className='spill '+(d.mode==='live'?'open':'paper');
   document.getElementById('modeLabel').textContent=d.mode.toUpperCase();
-}).catch(()=>{});
+}).catch(()=>{
+  document.getElementById('modeLabel').textContent='LIVE';
+});
 loadSaved();
 startApp();
 
