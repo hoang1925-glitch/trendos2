@@ -1,4 +1,4 @@
-Test 
+Index 
 Hoang Nguyen
 ​You​
 <!DOCTYPE html>
@@ -476,11 +476,15 @@ function rsi14(bars){
 async function loadData(){
   try{
     const syms=[...BROAD,...STKS,...CTKS].join(',');
-    const r=await fetch('/snapshots?symbols='+syms);
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const snaps=await r.json();
-    renderMkt(snaps);
-    const sec=buildSecs(snaps);
+    const [snapRes,barRes]=await Promise.all([
+      fetch('/snapshots?symbols='+syms),
+      fetch('/bars?symbols='+[...BROAD,...STKS].join(',')+'&limit=60')
+    ]);
+    if(!snapRes.ok)throw new Error('HTTP '+snapRes.status);
+    const snaps=await snapRes.json();
+    const bars=barRes.ok?await barRes.json():{};
+    renderMkt(snaps,bars);
+    const sec=buildSecs(snaps,bars);
     renderSecs(sec);
     renderSigs(sec.slice(0,8),snaps);
     renderFlow(sec,snaps);
@@ -489,7 +493,7 @@ async function loadData(){
   } catch(e){showErr('Data error: '+e.message);}
 }
 
-function renderMkt(snaps){
+function renderMkt(snaps,bars){
   const sp=pct(snaps.SPY),qp=pct(snaps.QQQ),ip=pct(snaps.IWM),dp=pct(snaps.DIA);
   const avg=(sp+qp+ip+dp)/4;
   let score=5;
@@ -501,10 +505,12 @@ function renderMkt(snaps){
   arc.style.strokeDashoffset=c-(c*score/10);
   arc.style.stroke=score>=7?'var(--green)':score>=4?'var(--yellow)':'var(--red)';
   let v,s,col;
-  if(score>=8){v='RISK ON';s='Strong broad market. Press high-conviction sectors.';col='var(--green)';}
-  else if(score>=6){v='CAUTIOUS BULL';s='Mixed signals. Favor top 2 sectors, reduce elsewhere.';col='var(--yellow)';}
-  else if(score>=4){v='NEUTRAL';s='Wait for confirmation before adding new positions.';col='var(--muted)';}
-  else{v='RISK OFF';s='Broad weakness. Cash is a position. Tighten stops.';col='var(--red)';}
+  const up=[sp,qp,ip,dp].filter(x=>x>0).length;
+  if(score>=8){v='RISK ON';s=up+'/4 indexes up. All systems go — size into top sectors, trail stops on winners.';col='var(--green)';}
+  else if(score>=6){v='CAUTIOUS BULL';s=up+'/4 indexes up. Trend intact but not screaming. Buy only top 2 ranked sectors. Hold winners, cut losers fast. No new spec positions.';col='var(--yellow)';}
+  else if(score>=4){v='NEUTRAL';s=up+'/4 indexes up. Mixed tape. Reduce size, wait for sector confirmation. Protect capital first.';col='var(--muted)';}
+  else if(score>=2){v='RISK OFF';s=up+'/4 indexes up. Market breaking down. Cash is a position. Tighten all stops. No new longs.';col='var(--red)';}
+  else{v='SELL EVERYTHING';s='Broad collapse. Exit all positions. Protect capital. Re-enter only after clear reversal.';col='var(--red)';}
   document.getElementById('verd').textContent=v;document.getElementById('verd').style.color=col;
   document.getElementById('verdSub').textContent=s;
   function setIx(sym,vi,ci,ii){
@@ -517,17 +523,23 @@ function renderMkt(snaps){
   setIx('SPY','spyV','spyC','spyI');setIx('QQQ','qqqV','qqqC','qqqI');setIx('IWM','iwmV','iwmC','iwmI');setIx('DIA','diaV','diaC','diaI');
 }
 
-function buildSecs(snaps){
+function buildSecs(snaps,bars){
   return SECS.map(s=>{
     const snap=snaps[s.t];
     const c=snap?.dailyBar?.c||0,o=snap?.dailyBar?.o||c;
     const v=snap?.dailyBar?.v||0,pv=snap?.prevDailyBar?.v||v;
     const chg=o?((c-o)/o*100):0,vr=pv?v/pv:1;
-    let score=5+chg*0.8;if(vr>1.5)score+=0.8;if(vr>2)score+=0.5;if(c>o)score+=0.5;
-    score=Math.max(1,Math.min(10,score));
+    const b=bars?bars[s.t]:null;
+    const e20=calcEMA(b,20),e50=calcEMA(b,50),rs=b?rsi14(b):null;
+    const above20=e20&&c>e20,above50=e50&&c>e50;
+    let score=5+chg*0.8;
+    if(vr>1.5)score+=0.8;if(vr>2)score+=0.5;if(c>o)score+=0.5;
+    if(above20)score+=0.5;if(above50)score+=0.7;
+    if(rs&&rs>60)score+=0.5;if(rs&&rs<40)score-=0.5;
+    score=Math.max(1,Math.min(10,+(score.toFixed(1))));
     let tier,alloc;
     if(score>=8){tier='strong';alloc=45;}else if(score>=6.5){tier='moderate';alloc=25;}else if(score>=4){tier='neutral';alloc=10;}else{tier='weak';alloc=0;}
-    return{...s,price:c,chg,vr,score,tier,alloc,h:snap?.dailyBar?.h||c,l:snap?.dailyBar?.l||c,pc:snap?.prevDailyBar?.c||c};
+    return{...s,price:c,chg,vr,score,tier,alloc,h:snap?.dailyBar?.h||c,l:snap?.dailyBar?.l||c,pc:snap?.prevDailyBar?.c||c,e20,e50,rsi:rs,above20,above50};
   }).sort((a,b)=>b.score-a.score);
 }
 
@@ -551,10 +563,13 @@ function renderSigs(secs,snaps){
   secs.forEach((s,i)=>{
     const pivot=(s.h+s.l+s.price)/3,r1=2*pivot-s.l,s1=2*pivot-s.h;
     let sig,cls,kl,ac;
-    if(s.score>=8&&s.chg>0.5){sig='CONTINUING';cls='s-c';kl=`Support: $${s1.toFixed(2)} · R1: $${r1.toFixed(2)} · Stop: $${(s1*0.99).toFixed(2)}`;ac=`Add on dips toward $${(s.price*0.98).toFixed(2)}. Stop below $${(s1*0.99).toFixed(2)}.`;}
-    else if(s.score>=6&&s.chg>0){sig='PULLBACK BUY';cls='s-p';kl=`Pivot: $${pivot.toFixed(2)} · Watch $${s1.toFixed(2)} support`;ac=`Buy dip to $${s1.toFixed(2)}. Confirm hold before adding. Stop $${(s.l*0.985).toFixed(2)}.`;}
-    else if(s.score>=5&&s.chg<0){sig='WATCH';cls='s-w';kl=`Key support: $${s.l.toFixed(2)} · Resistance: $${r1.toFixed(2)}`;ac=`Hold current. Break below $${s.l.toFixed(2)} = reduce 50%. Stop active.`;}
-    else{sig='AVOID';cls='s-x';kl=`Breakdown level: $${s.l.toFixed(2)}`;ac=`No new positions. Exit if breaks $${(s.l*0.99).toFixed(2)}.`;}
+    const emaStr=s.e20?` · EMA20: $${s.e20.toFixed(2)}`:'';
+    const rsiStr=s.rsi?` · RSI: ${s.rsi.toFixed(0)}`:'';
+    if(s.score>=8&&s.above50&&s.chg>0.5){sig='BUY';cls='s-c';kl=`Stop: $${(s1*0.99).toFixed(2)} · R1: $${r1.toFixed(2)}${emaStr}${rsiStr}`;ac=`Strong trend. Enter or add on dips to EMA20${s.e20?' ($'+s.e20.toFixed(2)+')':''}. Hard stop below $${(s1*0.99).toFixed(2)}.`;}
+    else if(s.score>=6&&s.above20&&s.chg>0){sig='BUY DIP';cls='s-p';kl=`Support: $${s1.toFixed(2)}${emaStr}${rsiStr}`;ac=`Wait for dip to $${s1.toFixed(2)}–${s.e20?'$'+s.e20.toFixed(2):'support'}. Confirm hold then enter. Stop $${(s.l*0.985).toFixed(2)}.`;}
+    else if(s.score>=5&&s.chg<0&&s.above50){sig='HOLD';cls='s-w';kl=`Key support: $${s.l.toFixed(2)} · EMA50: $${s.e50?s.e50.toFixed(2):'--'}${rsiStr}`;ac=`Hold if above EMA50${s.e50?' ($'+s.e50.toFixed(2)+')':''}. Break below = EXIT half. Full exit below $${(s.l*0.99).toFixed(2)}.`;}
+    else if(s.score<5&&!s.above20){sig='SELL/AVOID';cls='s-x';kl=`EXIT level: $${s.l.toFixed(2)} · Already below EMA20${emaStr}`;ac=`Below EMA20 — no new longs. If holding: EXIT on any bounce above $${s1.toFixed(2)}.`;}
+    else{sig='WATCH';cls='s-w';kl=`Pivot: $${pivot.toFixed(2)} · R1: $${r1.toFixed(2)}${rsiStr}`;ac=`No clear direction. Wait for break above $${r1.toFixed(2)} to buy or below $${s1.toFixed(2)} to exit.`;}
     const el=document.createElement('a');el.className='sigitem fi';el.style.animationDelay=i*25+'ms';
     el.href=`https://www.tradingview.com/chart/?symbol=AMEX:${s.t}`;el.target='_blank';el.rel='noopener noreferrer';
     el.innerHTML=`<div class="sig-l"><div class="sig-tk">${s.t} <span style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--muted);font-weight:400;">${s.n}</span></div><div class="sig-kl">📍 ${kl}</div><div class="sig-ac">→ ${ac}</div></div>
@@ -661,17 +676,58 @@ function addHold(){holdings.push({t:'',shares:0,avg:0});renderHolds();}
 function renderHolds(){
   const list=document.getElementById('holdsList');list.innerHTML='';
   holdings.forEach((h,i)=>{
+    const cost=h.shares&&h.avg?h.shares*h.avg:0;
+    const curr=h.shares&&h.price?h.shares*h.price:0;
+    const pl=curr&&cost?curr-cost:0;
+    const plPct=cost?((pl/cost)*100):0;
+    const plCol=pl>0?'var(--green)':pl<0?'var(--red)':'var(--muted)';
     const row=document.createElement('div');row.className='hold-row';
-    const val=h.shares&&h.avg?'$'+(h.shares*h.avg).toLocaleString():'-';
-    row.innerHTML=`<input class="hold-inp" style="width:58px;text-transform:uppercase;" placeholder="TICK" value="${h.t}" onchange="upHold(${i},'t',this.value.toUpperCase())" oninput="this.value=this.value.toUpperCase()">
-      <input class="hold-inp" type="number" style="width:70px;" placeholder="Shares" value="${h.shares||''}" onchange="upHold(${i},'shares',parseFloat(this.value)||0)">
-      <input class="hold-inp" type="number" style="width:70px;" placeholder="Avg $" value="${h.avg||''}" onchange="upHold(${i},'avg',parseFloat(this.value)||0)">
-      <span style="font-family:'Space Mono',monospace;font-size:10px;color:var(--cyan);flex:1;text-align:right;" id="hv${i}">${val}</span>
-      <button onclick="rmHold(${i})" style="background:transparent;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0 3px;">×</button>`;
+    row.style.cssText='display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);margin-bottom:8px;';
+    row.innerHTML=`
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input class="hold-inp" style="width:70px;text-transform:uppercase;font-weight:700;font-size:13px;" placeholder="TICKER" value="${h.t||''}" onchange="upHold(${i},'t',this.value.toUpperCase());lookupHold(${i});" oninput="this.value=this.value.toUpperCase()">
+        <input class="hold-inp" type="number" style="width:80px;" placeholder="Shares" value="${h.shares||''}" onchange="upHold(${i},'shares',parseFloat(this.value)||0)">
+        <input class="hold-inp" type="number" style="width:85px;" placeholder="Avg $" value="${h.avg||''}" onchange="upHold(${i},'avg',parseFloat(this.value)||0)">
+        <button onclick="rmHold(${i})" style="background:transparent;border:none;color:var(--red);cursor:pointer;font-size:16px;margin-left:auto;">×</button>
+      </div>
+      <div id="hstat${i}" style="font-family:'Space Mono',monospace;font-size:9px;display:flex;gap:10px;flex-wrap:wrap;">
+        ${h.price?`<span>Price: <b style="color:var(--cyan);">$${h.price.toFixed(2)}</b></span>`:''}
+        ${cost?`<span>Cost: <b>$${Math.round(cost).toLocaleString()}</b></span>`:''}
+        ${curr?`<span>Value: <b style="color:${plCol};">$${Math.round(curr).toLocaleString()}</b></span>`:''}
+        ${pl?`<span>P&L: <b style="color:${plCol};">${pl>0?'+':''}$${Math.round(pl).toLocaleString()} (${plPct>0?'+':''}${plPct.toFixed(1)}%)</b></span>`:''}
+        ${h.signal?`<span class="sb ${h.sigCls}" style="display:inline;padding:1px 6px;">${h.signal}</span>`:''}
+        ${h.stop?`<span style="color:var(--red);">Stop: $${h.stop}</span>`:''}
+      </div>`;
     list.appendChild(row);
   });saveHolds();
 }
-function upHold(i,f,v){holdings[i][f]=v;const el=document.getElementById('hv'+i);if(el&&holdings[i].shares&&holdings[i].avg)el.textContent='$'+(holdings[i].shares*holdings[i].avg).toLocaleString();saveHolds();}
+
+async function lookupHold(i){
+  const h=holdings[i];if(!h.t||h.t.length<1)return;
+  try{
+    const r=await fetch('/quote/'+h.t);
+    if(!r.ok)return;
+    const d=await r.json();
+    const c=d.snapshot?.dailyBar?.c||0;
+    const bars=d.bars||[];
+    const e20=calcEMA(bars,20),e50=calcEMA(bars,50);
+    const trend=detectTrend(bars);
+    const pivot=(d.snapshot?.dailyBar?.h+d.snapshot?.dailyBar?.l+c)/3;
+    const s1=pivot?(2*pivot-d.snapshot?.dailyBar?.h):c*0.97;
+    let signal,sigCls,stop;
+    if(trend.direction==='UPTREND'&&e50&&c>e50){signal='HOLD';sigCls='s-c';stop=(trend.channelLow*0.995).toFixed(2);}
+    else if(trend.direction==='UPTREND'&&e20&&c<e20){signal='WATCH';sigCls='s-w';stop=(trend.channelLow*0.995).toFixed(2);}
+    else if(trend.direction==='DOWNTREND'){signal='EXIT';sigCls='s-x';stop=c.toFixed(2);}
+    else{signal='HOLD';sigCls='s-w';stop=s1?s1.toFixed(2):null;}
+    holdings[i]={...h,price:c,signal,sigCls,stop};
+    saveHolds();renderHolds();
+  }catch(e){}
+}
+
+function upHold(i,f,v){
+  holdings[i][f]=v;
+  if(f==='shares'||f==='avg'){saveHolds();renderHolds();}
+}
 function rmHold(i){holdings.splice(i,1);renderHolds();}
 function saveHolds(){localStorage.setItem('th',JSON.stringify(holdings));}
 
