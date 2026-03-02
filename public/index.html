@@ -11,24 +11,6 @@
 *{margin:0;padding:0;box-sizing:border-box;}html{font-size:14px;}
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
 
-#disclaimerScreen{position:fixed;inset:0;background:rgba(8,11,15,0.97);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;}
-.disc-box{background:var(–bg2);border:1px solid var(–border2);border-radius:12px;padding:28px;max-width:500px;width:100%;}
-.disc-logo{font-family:‘Bebas Neue’,sans-serif;font-size:28px;letter-spacing:3px;color:var(–cyan);margin-bottom:4px;}
-.disc-title{font-family:‘Bebas Neue’,sans-serif;font-size:18px;color:var(–yellow);letter-spacing:1px;margin-bottom:14px;}
-.disc-text{font-size:12px;color:var(–muted);line-height:1.7;margin-bottom:18px;}
-.disc-text strong{color:var(–text);}
-.disc-agree{width:100%;padding:13px;background:var(–cyan);border:none;border-radius:6px;color:#000;font-family:‘Bebas Neue’,sans-serif;font-size:16px;letter-spacing:2px;cursor:pointer;}
-
-#accessScreen{position:fixed;inset:0;background:var(–bg);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px;}
-.acc-box{background:var(–bg2);border:1px solid var(–border2);border-radius:12px;padding:32px;max-width:380px;width:100%;}
-.acc-logo{font-family:‘Bebas Neue’,sans-serif;font-size:30px;letter-spacing:3px;color:var(–cyan);margin-bottom:6px;}
-.acc-sub{color:var(–muted);font-size:12px;margin-bottom:22px;}
-.acc-lbl{font-family:‘Space Mono’,monospace;font-size:10px;letter-spacing:2px;color:var(–muted);margin-bottom:7px;}
-.acc-input{width:100%;background:var(–bg3);border:1px solid var(–border);border-radius:6px;padding:12px;color:var(–text);font-family:‘Space Mono’,monospace;font-size:14px;outline:none;margin-bottom:14px;text-align:center;letter-spacing:3px;}
-.acc-input:focus{border-color:var(–cyan);}
-.acc-btn{width:100%;padding:12px;background:var(–cyan);border:none;border-radius:6px;color:#000;font-family:‘Bebas Neue’,sans-serif;font-size:16px;letter-spacing:2px;cursor:pointer;}
-.acc-err{color:var(–red);font-size:11px;margin-top:8px;display:none;font-family:‘Space Mono’,monospace;text-align:center;}
-
 #loadingScreen{position:fixed;inset:0;background:var(–bg);z-index:500;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
 .load-logo{font-family:‘Bebas Neue’,sans-serif;font-size:42px;letter-spacing:6px;color:var(–cyan);}
 .load-bar-wrap{width:160px;height:2px;background:var(–border);border-radius:1px;overflow:hidden;}
@@ -268,24 +250,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </head>
 <body>
 
-<div id="disclaimerScreen">
-  <div class="disc-box">
-    <div class="disc-logo">TREND<span style="opacity:0.4">OS</span></div>
-    <div class="disc-title">⚠ Important Disclaimer</div>
-    <div class="disc-text">TrendOS is an <strong>educational and informational tool only.</strong> The data, signals, and content provided do not constitute investment advice, financial advice, or trading recommendations.<br><br><strong>All trading involves significant risk of loss.</strong> Past performance does not guarantee future results. Never invest money you cannot afford to lose.<br><br>TrendOS is not registered as an investment advisor or broker-dealer. Always consult a qualified financial professional before making investment decisions.</div>
-    <button class="disc-agree" onclick="agreeDisc()">I UNDERSTAND — CONTINUE</button>
   </div>
 </div>
 
-<div id="accessScreen">
-  <div class="acc-box">
-    <div class="acc-logo">TREND<span style="opacity:0.4;font-size:18px;"> OS</span></div>
-    <div class="acc-sub">Enter your access code to continue</div>
-    <div class="acc-lbl">Access Code</div>
-    <input class="acc-input" id="accIn" type="password" placeholder="••••••••" autocomplete="off">
-    <button class="acc-btn" onclick="submitAcc()">ENTER</button>
-    <div class="acc-err" id="accErr">Invalid access code</div>
-    <div style="margin-top:12px;font-size:11px;color:var(--muted);text-align:center;">Educational tool — not financial advice</div>
   </div>
 </div>
 
@@ -452,23 +419,7 @@ const STKS=SECS.map(s=>s.t), CTKS=COMMS.map(c=>c.t);
 
 let allNews=[],nFilter='all',nSearch='',mktOpen=false,refIv=null,capital=78000,holdings=[];
 
-function agreeDisc(){sessionStorage.setItem('d','1');document.getElementById('disclaimerScreen').style.display='none';document.getElementById('accessScreen').style.display='flex';document.getElementById('accIn').focus();}
-if(sessionStorage.getItem('d')==='1'){document.getElementById('disclaimerScreen').style.display='none';document.getElementById('accessScreen').style.display='flex';}
 
-document.getElementById('accIn').addEventListener('keydown',e=>{if(e.key==='Enter')submitAcc();});
-async function submitAcc(){
-  const code=document.getElementById('accIn').value.trim();
-  const err=document.getElementById('accErr');err.style.display='none';
-  try{
-    const r=await fetch('/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
-    const d=await r.json();
-    if(d.ok){
-      document.getElementById('accessScreen').style.display='none';
-      document.getElementById('loadingScreen').style.display='flex';
-      document.getElementById('modePill').className='spill '+(d.mode==='live'?'open':'paper');
-      document.getElementById('modeLabel').textContent=d.mode.toUpperCase();
-      loadSaved(); startApp();
-    } else {err.style.display='block';document.getElementById('accIn').value='';document.getElementById('accIn').focus();}
   } catch(e){err.textContent='Server error';err.style.display='block';}
 }
 
@@ -494,7 +445,6 @@ async function startApp(){
   startClock();chkMkt();
   await loadData();
   loadNews(); // always load news
-  document.getElementById('loadingScreen').style.display='none';
   document.getElementById('app').style.display='block';
   refIv=setInterval(()=>{chkMkt();loadData();},mktOpen?30000:300000);
   setInterval(loadNews,600000);
@@ -1006,12 +956,16 @@ function renderResult(d){
     '</div>'+
     '<div class="sr-acts">'+
       '<a href="https://www.tradingview.com/chart/?symbol='+d.symbol+'" target="_blank" rel="noopener noreferrer" class="tv-a">Open TradingView</a>'+
-      '<button class="tv-eb" onclick="toggleChart(''+d.symbol+'')">Quick Chart</button>'+
+      '<button class="tv-eb" id="chartBtn" data-sym="'+d.symbol+'">📈 Quick Chart</button>'+
     '</div>'+
     '<iframe id="tvFr" class="tv-iframe" src="" allowtransparency="true" scrolling="no"></iframe>'+
     '<div class="tbars"><div class="tbars-l">TREND HISTORY · '+showN+' bars · trend intact '+trend.ageDays+'d</div>'+chartSvg+'</div>';
 }
 
+document.addEventListener('click',function(e){
+  const btn=e.target.closest('#chartBtn');
+  if(btn){toggleChart(btn.dataset.sym);}
+});
 function toggleChart(sym){
   const fr=document.getElementById('tvFr');
   if(fr.classList.contains('show')){fr.classList.remove('show');fr.src='';}
@@ -1066,6 +1020,15 @@ function renderNews(){
     list.appendChild(el);
   });
 }
+
+// Auto-start
+document.getElementById('loadingScreen').style.display='flex';
+fetch('/health').then(r=>r.json()).then(d=>{
+  document.getElementById('modePill').className='spill '+(d.mode==='live'?'open':'paper');
+  document.getElementById('modeLabel').textContent=d.mode.toUpperCase();
+}).catch(()=>{});
+loadSaved();
+startApp();
 
 function showErr(m){const b=document.getElementById('ebar');b.textContent='⚠ '+m;b.className='ebar show';}
 function hideErr(){document.getElementById('ebar').className='ebar';}
