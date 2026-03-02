@@ -583,7 +583,7 @@ function renderSigs(secs,snaps){
 function renderFlow(secs,snaps){
   const grid=document.getElementById('fgrid');grid.innerHTML='';
   const bFlow=BROAD.map(sym=>({t:sym,n:{SPY:'S&P 500',QQQ:'NASDAQ',IWM:'Russell 2k',DIA:'Dow Jones'}[sym],chg:pct(snaps[sym]),vr:1}));
-  const all=[...bFlow,...secs].sort((a,b)=>b.chg-a.chg);
+  const all=[...bFlow,...secs].sort((a,b)=>b.chg-a.chg);const inflow=all.filter(s=>s.chg>0);const outflow=all.filter(s=>s.chg<=0).reverse();
   const inflow=all.filter(s=>s.chg>0);
   const outflow=all.filter(s=>s.chg<=0).reverse();
   const show=[...inflow,...outflow];
