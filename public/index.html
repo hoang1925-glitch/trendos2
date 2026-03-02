@@ -1,6 +1,3 @@
-Index 
-Hoang Nguyen
-​You​
 <!DOCTYPE html>
 
 <html lang="en">
@@ -506,10 +503,13 @@ function renderMkt(snaps,bars){
   arc.style.stroke=score>=7?'var(--green)':score>=4?'var(--yellow)':'var(--red)';
   let v,s,col;
   const up=[sp,qp,ip,dp].filter(x=>x>0).length;
-  if(score>=8){v='RISK ON';s=up+'/4 indexes up. All systems go — size into top sectors, trail stops on winners.';col='var(--green)';}
-  else if(score>=6){v='CAUTIOUS BULL';s=up+'/4 indexes up. Trend intact but not screaming. Buy only top 2 ranked sectors. Hold winners, cut losers fast. No new spec positions.';col='var(--yellow)';}
-  else if(score>=4){v='NEUTRAL';s=up+'/4 indexes up. Mixed tape. Reduce size, wait for sector confirmation. Protect capital first.';col='var(--muted)';}
-  else if(score>=2){v='RISK OFF';s=up+'/4 indexes up. Market breaking down. Cash is a position. Tighten all stops. No new longs.';col='var(--red)';}
+  // Build top sectors string from global secData
+  const topSecs=window._secData?window._secData.slice(0,3).map(s=>s.t+' ('+s.n+')').join(', '):'loading...';
+  const leadSec=window._secData?window._secData[0]:'';
+  if(score>=8){v='RISK ON';s=up+'/4 indexes green. Leading: '+topSecs+'. Size into top sectors, trail stops on winners.';col='var(--green)';}
+  else if(score>=6){v='CAUTIOUS BULL';s=up+'/4 indexes green. Top sectors: '+topSecs+'. Buy only #1 & #2 ranked. Hold winners, cut losers fast. No new spec positions.';col='var(--yellow)';}
+  else if(score>=4){v='NEUTRAL';s=up+'/4 indexes green. Mixed tape. Best sector: '+(leadSec?leadSec.t:'--')+'. Reduce size, wait for confirmation.';col='var(--muted)';}
+  else if(score>=2){v='RISK OFF';s=up+'/4 indexes green. Market breaking down. Cash is a position. Tighten all stops. No new longs.';col='var(--red)';}
   else{v='SELL EVERYTHING';s='Broad collapse. Exit all positions. Protect capital. Re-enter only after clear reversal.';col='var(--red)';}
   document.getElementById('verd').textContent=v;document.getElementById('verd').style.color=col;
   document.getElementById('verdSub').textContent=s;
@@ -541,6 +541,8 @@ function buildSecs(snaps,bars){
     if(score>=8){tier='strong';alloc=45;}else if(score>=6.5){tier='moderate';alloc=25;}else if(score>=4){tier='neutral';alloc=10;}else{tier='weak';alloc=0;}
     return{...s,price:c,chg,vr,score,tier,alloc,h:snap?.dailyBar?.h||c,l:snap?.dailyBar?.l||c,pc:snap?.prevDailyBar?.c||c,e20,e50,rsi:rs,above20,above50};
   }).sort((a,b)=>b.score-a.score);
+  window._secData=result;
+  return result;
 }
 
 function tc(tier){return tier==='strong'?'var(--green)':tier==='moderate'?'var(--yellow)':tier==='weak'?'var(--red)':'var(--muted)';}
@@ -582,7 +584,10 @@ function renderFlow(secs,snaps){
   const grid=document.getElementById('fgrid');grid.innerHTML='';
   const bFlow=BROAD.map(sym=>({t:sym,n:{SPY:'S&P 500',QQQ:'NASDAQ',IWM:'Russell 2k',DIA:'Dow Jones'}[sym],chg:pct(snaps[sym]),vr:1}));
   const all=[...bFlow,...secs].sort((a,b)=>b.chg-a.chg);
-  [...all.slice(0,4),...all.slice(-3)].forEach((s,i)=>{
+  const inflow=all.filter(s=>s.chg>0);
+  const outflow=all.filter(s=>s.chg<=0).reverse();
+  const show=[...inflow,...outflow];
+  show.forEach((s,i)=>{
     const inf=s.chg>=0;
     const el=document.createElement('a');el.className='fcard '+(inf?'inf':'out');el.style.animationDelay=i*20+'ms';
     el.href=`https://www.tradingview.com/chart/?symbol=AMEX:${s.t}`;el.target='_blank';el.rel='noopener noreferrer';
@@ -685,7 +690,7 @@ function renderHolds(){
     row.style.cssText='display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);margin-bottom:8px;';
     row.innerHTML=`
       <div style="display:flex;gap:6px;align-items:center;">
-        <input class="hold-inp" style="width:70px;text-transform:uppercase;font-weight:700;font-size:13px;" placeholder="TICKER" value="${h.t||''}" onchange="upHold(${i},'t',this.value.toUpperCase());lookupHold(${i});" oninput="this.value=this.value.toUpperCase()">
+        <input class="hold-inp" style="width:70px;text-transform:uppercase;font-weight:700;font-size:13px;" placeholder="TICKER" value="${h.t||''}" onblur="if(this.value){upHold(${i},'t',this.value.toUpperCase());lookupHold(${i});}" oninput="this.value=this.value.toUpperCase()">
         <input class="hold-inp" type="number" style="width:80px;" placeholder="Shares" value="${h.shares||''}" onchange="upHold(${i},'shares',parseFloat(this.value)||0)">
         <input class="hold-inp" type="number" style="width:85px;" placeholder="Avg $" value="${h.avg||''}" onchange="upHold(${i},'avg',parseFloat(this.value)||0)">
         <button onclick="rmHold(${i})" style="background:transparent;border:none;color:var(--red);cursor:pointer;font-size:16px;margin-left:auto;">×</button>
