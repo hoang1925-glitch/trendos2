@@ -443,16 +443,10 @@ function chkMkt(){
 
 async function startApp(){
   startClock();chkMkt();
-  try{
-    await Promise.race([
-      loadData(),
-      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000))
-    ]);
-  } catch(e){
-    showErr('Data load failed: '+e.message+' — tap ↻ to retry');
-  }
+  // Show app immediately, load data in background
   document.getElementById('loadingScreen').style.display='none';
   document.getElementById('app').style.display='block';
+  loadData();
   loadNews();
   refIv=setInterval(()=>{chkMkt();loadData();},mktOpen?30000:300000);
   setInterval(loadNews,600000);
