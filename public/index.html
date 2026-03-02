@@ -479,7 +479,7 @@ async function loadData(){
     ]);
     if(!snapRes.ok)throw new Error('HTTP '+snapRes.status);
     const snaps=await snapRes.json();
-    const bars=barRes.ok?await barRes.json():{};
+    const bars=barRes&&barRes.ok?await barRes.json():{};
     renderMkt(snaps,bars);
     const sec=buildSecs(snaps,bars);
     renderSecs(sec);
