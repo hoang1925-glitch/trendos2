@@ -1,3 +1,6 @@
+1
+Hoang Nguyen
+​You​
 require(‘dotenv’).config();
 const express = require(‘express’);
 const fetch = require(‘node-fetch’);
@@ -32,7 +35,7 @@ res.status(401).json({ ok: false, error: ‘Invalid access code’ });
 // ── Market status ─────────────────────────────────────────────────────
 app.get(’/market-status’, async (req, res) => {
 try {
-const r = await fetch(${BASE_URL}/v2/clock, {
+const r = await fetch(`${BASE_URL}/v2/clock`, {
 headers: {
 ‘APCA-API-KEY-ID’: ALPACA_KEY,
 ‘APCA-API-SECRET-KEY’: ALPACA_SECRET,
@@ -49,7 +52,7 @@ res.status(500).json({ error: e.message });
 app.get(’/snapshots’, async (req, res) => {
 try {
 const { symbols } = req.query;
-const r = await fetch(${DATA_URL}/v2/stocks/snapshots?symbols=${symbols}&feed=iex, {
+const r = await fetch(`${DATA_URL}/v2/stocks/snapshots?symbols=${symbols}&feed=iex`, {
 headers: {
 ‘APCA-API-KEY-ID’: ALPACA_KEY,
 ‘APCA-API-SECRET-KEY’: ALPACA_SECRET,
@@ -67,10 +70,10 @@ app.get(’/quote/:symbol’, async (req, res) => {
 try {
 const sym = req.params.symbol.toUpperCase();
 const [snapRes, barsRes] = await Promise.all([
-fetch(${DATA_URL}/v2/stocks/${sym}/snapshot?feed=iex, {
+fetch(`${DATA_URL}/v2/stocks/${sym}/snapshot?feed=iex`, {
 headers: { ‘APCA-API-KEY-ID’: ALPACA_KEY, ‘APCA-API-SECRET-KEY’: ALPACA_SECRET }
 }),
-fetch(${DATA_URL}/v2/stocks/${sym}/bars?timeframe=1Day&limit=252&feed=iex, {
+fetch(`${DATA_URL}/v2/stocks/${sym}/bars?timeframe=1Day&limit=252&feed=iex`, {
 headers: { ‘APCA-API-KEY-ID’: ALPACA_KEY, ‘APCA-API-SECRET-KEY’: ALPACA_SECRET }
 })
 ]);
@@ -89,7 +92,7 @@ try {
 const { symbols, limit } = req.query;
 const params = new URLSearchParams({ limit: limit || 30, sort: ‘desc’ });
 if (symbols) params.set(‘symbols’, symbols);
-const r = await fetch(${DATA_URL}/v2/news?${params}, {
+const r = await fetch(`${DATA_URL}/v2/news?${params}`, {
 headers: { ‘APCA-API-KEY-ID’: ALPACA_KEY, ‘APCA-API-SECRET-KEY’: ALPACA_SECRET }
 });
 const data = await r.json();
@@ -107,7 +110,7 @@ const syms = symbols.split(’,’);
 const lim = limit || 60;
 const results = {};
 await Promise.all(syms.map(async sym => {
-const r = await fetch(${DATA_URL}/v2/stocks/${sym}/bars?timeframe=1Day&limit=${lim}&feed=iex, {
+const r = await fetch(`${DATA_URL}/v2/stocks/${sym}/bars?timeframe=1Day&limit=${lim}&feed=iex`, {
 headers: { ‘APCA-API-KEY-ID’: ALPACA_KEY, ‘APCA-API-SECRET-KEY’: ALPACA_SECRET }
 });
 const data = await r.json();
@@ -126,7 +129,7 @@ app.get(’/health’, (req, res) => res.json({ status: ‘ok’, mode: ALPACA_M
 app.listen(PORT, () => {
 console.log(’\n========================================’);
 console.log(’  TrendOS v2 is running!’);
-console.log(`  http://localhost:${PORT}`);
+console.log(`  [http://localhost:${PORT}`)]http://localhost:${PORT}`);
 console.log(`  Mode: ${ALPACA_MODE.toUpperCase()}`);
 console.log(`  Access code: ${ACCESS_CODE}`);
 console.log(’========================================\n’);
@@ -134,6 +137,6 @@ console.log(’  Press Ctrl+C to stop.\n’);
 
 if (process.env.NODE_ENV !== ‘production’) {
 const { exec } = require(‘child_process’);
-exec(start http://localhost:${PORT});
+exec(`start [http://localhost:${PORT}`)]http://localhost:${PORT}`);
 }
 });
